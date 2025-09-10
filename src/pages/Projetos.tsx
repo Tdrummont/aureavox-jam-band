@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { FolderOpen, Plus, Search, Users, Clock, Music } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const Projetos = () => {
   const projects = [
@@ -150,9 +151,11 @@ const Projetos = () => {
 
               {/* Actions */}
               <div className="flex gap-2 pt-2">
-                <Button size="sm" className="flex-1" variant="secondary">
-                  Abrir
-                </Button>
+                <Link to={`/project/${project.id}`} className="flex-1">
+                  <Button size="sm" className="w-full" variant="secondary">
+                    Abrir
+                  </Button>
+                </Link>
                 <Button size="sm" variant="outline">
                   <FolderOpen className="w-4 h-4" />
                 </Button>
