@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,11 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Music, Mic, Settings, Users, Calendar } from "lucide-react";
 import RecordingPanel from "@/components/Recording/RecordingPanel";
 import TracksList from "@/components/Tracks/TracksList";
+import { getProjectById, Project } from "@/services/projectsService";
 
 const Project = () => {
   const { id } = useParams<{ id: string }>();
   const projectId = parseInt(id || "1");
+  const [project, setProject] = useState<Project | null>(null);
   const [refreshTracks, setRefreshTracks] = useState(0);
+
+  useEffect(() => {
+    (async () => {
+      const p = await getProjectById(projectId);
+      setProject(p);
+    })();
+  }, [projectId]);
 
   const handleTrackUploaded = () => {
     setRefreshTracks(prev => prev + 1);
@@ -22,19 +31,19 @@ const Project = () => {
       {/* Header do Projeto */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Projeto AureaVox</h1>
+          <h1 className="text-3xl font-bold">{project?.title || "Projeto"}</h1>
           <p className="text-muted-foreground">
-            Sessão de gravação colaborativa em tempo real
+            {project?.description || "Sessão de gravação colaborativa"}
           </p>
         </div>
         <div className="flex items-center space-x-2">
           <Badge variant="outline" className="flex items-center space-x-1">
             <Users className="w-3 h-3" />
-            <span>3 músicos</span>
+            <span>{project?.collaborators ?? 0} músicos</span>
           </Badge>
           <Badge variant="outline" className="flex items-center space-x-1">
             <Calendar className="w-3 h-3" />
-            <span>Ativo</span>
+            <span>{project?.status || "Ativo"}</span>
           </Badge>
         </div>
       </div>
@@ -104,9 +113,9 @@ const Project = () => {
               <CardContent className="space-y-4">
                 <div className="text-sm text-muted-foreground">
                   <p>• Projeto ID: {projectId}</p>
-                  <p>• Criado em: Janeiro 2024</p>
-                  <p>• Última atividade: Agora</p>
-                  <p>• Status: Ativo</p>
+                  <p>• Criado em: {project ? new Date(project.createdAt).toLocaleDateString('pt-BR') : '-'}</p>
+                  <p>• Última atividade: {project ? new Date(project.lastUpdate).toLocaleString('pt-BR') : '-'}</p>
+                  <p>• Status: {project?.status || '-'}</p>
                 </div>
                 <Button variant="outline" className="w-full">
                   Exportar Projeto

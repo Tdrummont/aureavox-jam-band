@@ -1,63 +1,70 @@
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { addEvent, getEvents, updateEvent, deleteEvent as removeEvent, BandEvent, EventType } from "@/services/eventsService";
 import { Calendar, Plus, Clock, MapPin, Users, Music2, Mic } from "lucide-react";
 
 const Agenda = () => {
-  const events = [
-    {
-      id: 1,
-      title: "Ensaio da Banda Aurea",
-      type: "rehearsal",
-      date: "2024-01-15",
-      time: "19:00",
-      duration: "3h",
-      location: "Estúdio Central - Sala 2",
-      participants: [
-        { name: "João", confirmed: true },
-        { name: "Maria", confirmed: true },
-        { name: "Carlos", confirmed: false },
-        { name: "Ana", confirmed: true }
-      ],
-      setlist: "Rock Classics Vol. 1",
-      notes: "Focar na transição entre as músicas 3 e 4"
-    },
-    {
-      id: 2,
-      title: "Show no Bar do Rock",
-      type: "show",
-      date: "2024-01-20",
-      time: "21:30",
-      duration: "2h",
-      location: "Bar do Rock - Palco Principal",
-      participants: [
-        { name: "João", confirmed: true },
-        { name: "Maria", confirmed: true },
-        { name: "Carlos", confirmed: true },
-        { name: "Ana", confirmed: true }
-      ],
-      setlist: "Setlist Show Bar do Rock",
-      notes: "Chegada às 20:00 para soundcheck"
-    },
-    {
-      id: 3,
-      title: "Gravação - Nova Música",
-      type: "recording",
-      date: "2024-01-25",
-      time: "14:00",
-      duration: "4h",
-      location: "Estúdio Aurora",
-      participants: [
-        { name: "João", confirmed: true },
-        { name: "Maria", confirmed: false }
-      ],
-      setlist: null,
-      notes: "Levar guitarras extras e partituras"
-    }
-  ];
+  const { toast } = useToast();
+  const [events, setEvents] = useState<BandEvent[]>([]);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<BandEvent | null>(null);
+  const [filter, setFilter] = useState<"all" | EventType>("all");
+  const [from, setFrom] = useState<string>("");
+  const [to, setTo] = useState<string>("");
+  const [page, setPage] = useState<number>(1);
+  const [perPage, setPerPage] = useState<number>(10);
+  const [form, setForm] = useState({
+    title: "",
+    type: "rehearsal" as EventType,
+    date: "",
+    time: "",
+    duration: "",
+    location: "",
+    setlist: "",
+    notes: "",
+  });
 
-  const upcomingEvents = events.filter(event => new Date(event.date) >= new Date());
-  const todayEvents = events.filter(event => event.date === new Date().toISOString().split('T')[0]);
+  useEffect(() => {
+    (async () => {
+      const list = await getEvents({ type: filter, from, to, page, per_page: perPage });
+      setEvents(list);
+    })();
+  }, [filter, from, to, page, perPage]);
+
+  const filteredEvents = useMemo(() => {
+    if (filter === "all") return events;
+    return events.filter(e => e.type === filter);
+  }, [events, filter]);
+
+  const parseLocalDate = (ymd: string) => {
+    const [y, m, d] = ymd.split("-").map(Number);
+    return new Date(y, (m || 1) - 1, d || 1);
+  };
+
+  const todayLocalYMD = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+
+  const upcomingEvents = useMemo(
+    () => filteredEvents.filter(event => parseLocalDate(event.date) >= parseLocalDate(todayLocalYMD())),
+    [filteredEvents]
+  );
+  const todayEvents = useMemo(
+    () => filteredEvents.filter(event => event.date === todayLocalYMD()),
+    [filteredEvents]
+  );
 
   const getEventIcon = (type: string) => {
     switch (type) {
@@ -99,12 +106,93 @@ const Agenda = () => {
   };
 
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
+    const date = parseLocalDate(dateStr);
     return date.toLocaleDateString('pt-BR', { 
       weekday: 'long', 
       day: 'numeric', 
       month: 'long' 
     });
+  };
+
+  const resetForm = () => {
+    setEditing(null);
+    setForm({ title: "", type: "rehearsal", date: "", time: "", duration: "", location: "", setlist: "", notes: "" });
+  };
+
+  const handleOpenNew = () => {
+    resetForm();
+    setOpen(true);
+  };
+
+  const handleEditClick = (event: BandEvent) => {
+    setEditing(event);
+    setForm({
+      title: event.title,
+      type: event.type,
+      date: event.date,
+      time: event.time,
+      duration: event.duration ?? "",
+      location: event.location ?? "",
+      setlist: event.setlist ?? "",
+      notes: event.notes ?? "",
+    });
+    setOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.title.trim() || !form.date || !form.time) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha título, data e hora.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      if (editing) {
+        await updateEvent(editing.id, {
+          title: form.title.trim(),
+          type: form.type,
+          date: form.date,
+          time: form.time,
+          duration: form.duration || null,
+          location: form.location || null,
+          setlist: form.setlist || null,
+          notes: form.notes || null,
+        });
+      } else {
+        await addEvent({
+          title: form.title.trim(),
+          type: form.type,
+          date: form.date,
+          time: form.time,
+          duration: form.duration || null,
+          location: form.location || null,
+          setlist: form.setlist || null,
+          notes: form.notes || null,
+        });
+      }
+      const list = await getEvents({ type: filter, from, to, page, per_page: perPage });
+      setEvents(list);
+      setOpen(false);
+      const created = !editing;
+      resetForm();
+      toast({ title: created ? "Evento criado" : "Evento atualizado", description: created ? "Seu evento foi adicionado à agenda." : "As alterações foram salvas." });
+    } catch (err) {
+      toast({ title: editing ? "Erro ao atualizar evento" : "Erro ao criar evento", description: err instanceof Error ? err.message : "Tente novamente.", variant: "destructive" });
+    }
+  };
+
+  const handleDelete = async (event: BandEvent) => {
+    if (!confirm(`Remover o evento "${event.title}"?`)) return;
+    try {
+      await removeEvent(event.id);
+      const list = await getEvents({ type: filter, from, to, page, per_page: perPage });
+      setEvents(list);
+      toast({ title: "Evento removido", description: "O evento foi excluído da agenda." });
+    } catch (err) {
+      toast({ title: "Erro ao remover", description: err instanceof Error ? err.message : "Tente novamente.", variant: "destructive" });
+    }
   };
 
   return (
@@ -115,10 +203,66 @@ const Agenda = () => {
           <h1 className="text-3xl font-bold">Agenda</h1>
           <p className="text-muted-foreground">Organize seus ensaios, shows e gravações</p>
         </div>
-        <Button className="bg-gradient-hero hover:shadow-glow transition-all">
-          <Plus className="w-4 h-4 mr-2" />
-          Novo Evento
-        </Button>
+        <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); setOpen(v); }}>
+          <DialogTrigger asChild>
+            <Button className="bg-gradient-hero hover:shadow-glow transition-all" onClick={handleOpenNew}>
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Evento
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editing ? "Editar Evento" : "Novo Evento"}</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="title">Título</Label>
+                <Input id="title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Ex: Ensaio da banda" />
+              </div>
+              <div className="space-y-2">
+                <Label>Tipo</Label>
+                <Select value={form.type} onValueChange={(v: EventType) => setForm({ ...form, type: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="rehearsal">Ensaio</SelectItem>
+                    <SelectItem value="show">Show</SelectItem>
+                    <SelectItem value="recording">Gravação</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="date">Data</Label>
+                <Input id="date" type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="time">Hora</Label>
+                <Input id="time" type="time" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="duration">Duração</Label>
+                <Input id="duration" value={form.duration} onChange={e => setForm({ ...form, duration: e.target.value })} placeholder="Ex: 2h" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="location">Local</Label>
+                <Input id="location" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="Ex: Estúdio Central" />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="setlist">Setlist</Label>
+                <Input id="setlist" value={form.setlist} onChange={e => setForm({ ...form, setlist: e.target.value })} placeholder="Opcional" />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="notes">Observações</Label>
+                <Textarea id="notes" rows={3} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Detalhes importantes" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+              <Button onClick={handleSave}>{editing ? "Atualizar" : "Salvar"}</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Today's Events */}
@@ -164,11 +308,17 @@ const Agenda = () => {
               <Button variant="ghost" size="sm">Calendário</Button>
               <Button variant="ghost" size="sm">Semana</Button>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm">Todos</Button>
-              <Button variant="ghost" size="sm">Ensaios</Button>
-              <Button variant="ghost" size="sm">Shows</Button>
-              <Button variant="ghost" size="sm">Gravações</Button>
+            <div className="flex flex-wrap gap-2 items-center">
+              <Button variant={filter === "all" ? "outline" : "ghost"} size="sm" onClick={() => { setFilter("all"); setPage(1); }}>Todos</Button>
+              <Button variant={filter === "rehearsal" ? "outline" : "ghost"} size="sm" onClick={() => { setFilter("rehearsal"); setPage(1); }}>Ensaios</Button>
+              <Button variant={filter === "show" ? "outline" : "ghost"} size="sm" onClick={() => { setFilter("show"); setPage(1); }}>Shows</Button>
+              <Button variant={filter === "recording" ? "outline" : "ghost"} size="sm" onClick={() => { setFilter("recording"); setPage(1); }}>Gravações</Button>
+              <div className="flex items-center gap-2 ml-2">
+                <Input type="date" value={from} onChange={e => { setFrom(e.target.value); setPage(1); }} className="h-8 w-[140px]" />
+                <span className="text-xs text-muted-foreground">até</span>
+                <Input type="date" value={to} onChange={e => { setTo(e.target.value); setPage(1); }} className="h-8 w-[140px]" />
+                <Input type="number" min={5} max={50} value={perPage} onChange={e => { setPerPage(Math.max(5, Math.min(50, Number(e.target.value) || 10))); setPage(1); }} className="h-8 w-[80px]" />
+              </div>
             </div>
           </div>
         </CardContent>
@@ -252,16 +402,23 @@ const Agenda = () => {
               )}
 
               <div className="flex gap-2 pt-2">
-                <Button size="sm" variant="secondary" className="flex-1">
+                <Button size="sm" variant="secondary" className="flex-1" onClick={() => handleEditClick(event)}>
                   Editar
                 </Button>
-                <Button size="sm" variant="outline">
-                  Compartilhar
+                <Button size="sm" variant="outline" onClick={() => handleDelete(event)}>
+                  Excluir
                 </Button>
               </div>
             </CardContent>
           </Card>
         ))}
+
+        {/* Pagination */}
+        <div className="flex items-center justify-end gap-2 pt-2">
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Anterior</Button>
+          <div className="text-xs text-muted-foreground">Página {page}</div>
+          <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)}>Próxima</Button>
+        </div>
       </div>
 
       {/* Empty State */}
