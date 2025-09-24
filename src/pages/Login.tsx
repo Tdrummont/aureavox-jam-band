@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 
+// Se sua logo estiver na pasta public, basta usar "/logo.png"
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,12 +40,22 @@ const Login = () => {
 
   return (
     <Card className="w-full">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl text-center">Entrar</CardTitle>
-        <CardDescription className="text-center">
-          Digite suas credenciais para acessar sua conta
-        </CardDescription>
+      <CardHeader className="space-y-4 flex flex-col items-center">
+        {/* Logo */}
+        <img 
+          src="/logo.png"
+          alt="Logo"
+          className="h-20 md:h-32 lg:h-40 w-auto"
+        />
+
+        <div className="space-y-1 text-center">
+          <CardTitle className="text-2xl">Entrar</CardTitle>
+          <CardDescription>
+            Digite suas credenciais para acessar sua conta
+          </CardDescription>
+        </div>
       </CardHeader>
+      
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
