@@ -54,9 +54,11 @@ export function useAudioPlayer(): UseAudioPlayerReturn {
   // Inicializar AudioContext
   const initAudioContext = useCallback(async () => {
     if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
-        sampleRate: 48000
-      });
+      type WebAudioWindow = Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext };
+      const win = window as WebAudioWindow;
+      const AudioCtx = (win.AudioContext || win.webkitAudioContext);
+      if (!AudioCtx) throw new Error('Web Audio API não suportada neste navegador');
+      audioContextRef.current = new AudioCtx({ sampleRate: 48000 });
       
       gainNodeRef.current = audioContextRef.current.createGain();
       gainNodeRef.current.gain.setValueAtTime(1, audioContextRef.current.currentTime);
@@ -70,7 +72,7 @@ export function useAudioPlayer(): UseAudioPlayerReturn {
 
   // Carregar buffer de áudio
   const loadAudioBuffer = useCallback(async (track: Track): Promise<AudioBuffer> => {
-    if (!audioContextRef.current) return null as any;
+    if (!audioContextRef.current) throw new Error('AudioContext não inicializado');
 
     const cachedBuffer = audioBuffersRef.current.get(track.id);
     if (cachedBuffer) return cachedBuffer;
@@ -104,6 +106,29 @@ export function useAudioPlayer(): UseAudioPlayerReturn {
     animationFrameRef.current = requestAnimationFrame(updateCurrentTime);
   }, [isPlaying]);
 
+  // Limpar reprodução atual (parar nodes, cancelar animação)
+  const resetPlayback = useCallback(() => {
+    if (!audioContextRef.current) return;
+
+    setIsPlaying(false);
+
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+    sourceNodesRef.current.forEach((sourceNode) => {
+      try {
+        sourceNode.stop();
+      } catch {
+        // Ignorar erro se já foi parado
+      }
+    });
+
+    sourceNodesRef.current.clear();
+    gainNodesRef.current.clear();
+  }, []);
+
   // Tocar trilhas
   const play = useCallback(async (tracks: Track[]) => {
     try {
@@ -112,7 +137,7 @@ export function useAudioPlayer(): UseAudioPlayerReturn {
       if (!audioContextRef.current || !gainNodeRef.current) return;
 
       // Parar reprodução anterior
-      stop();
+      resetPlayback();
 
       tracksRef.current = tracks;
       
@@ -166,31 +191,12 @@ export function useAudioPlayer(): UseAudioPlayerReturn {
     } catch (error) {
       console.error('Erro ao iniciar reprodução:', error);
     }
-  }, [initAudioContext, loadAudioBuffer, dbToGain, updateCurrentTime]);
+  }, [initAudioContext, loadAudioBuffer, dbToGain, updateCurrentTime, resetPlayback]);
 
   // Pausar reprodução
   const pause = useCallback(() => {
-    if (!audioContextRef.current) return;
-
-    setIsPlaying(false);
-    
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-
-    // Parar todos os source nodes
-    sourceNodesRef.current.forEach((sourceNode) => {
-      try {
-        sourceNode.stop();
-      } catch (error) {
-        // Ignorar erro se já foi parado
-      }
-    });
-
-    sourceNodesRef.current.clear();
-    gainNodesRef.current.clear();
-  }, []);
+    resetPlayback();
+  }, [resetPlayback]);
 
   // Parar reprodução
   const stop = useCallback(() => {

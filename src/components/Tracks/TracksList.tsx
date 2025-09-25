@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAudioPlayer, Track } from "@/hooks/useAudioPlayer";
 import { 
   getProjectTracks, 
@@ -19,12 +19,10 @@ import {
   Volume2, 
   VolumeX, 
   Eye, 
-  EyeOff, 
   Trash2,
   Clock,
   Music,
-  User,
-  Calendar
+  
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
@@ -55,7 +53,7 @@ const TracksList = ({ projectId }: TracksListProps) => {
   } = useAudioPlayer();
 
   // Carregar trilhas do projeto
-  const loadTracks = async () => {
+  const loadTracks = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -66,11 +64,11 @@ const TracksList = ({ projectId }: TracksListProps) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
     loadTracks();
-  }, [projectId]);
+  }, [loadTracks]);
 
   // Formatar tempo
   const formatTime = (seconds: number) => {

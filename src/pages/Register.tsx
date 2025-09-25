@@ -41,11 +41,11 @@ const Register = () => {
     try {
       const success = await register(name, email, password);
       if (success) {
-        navigate("/");
+        navigate("/dashboard");
       } else {
         setError("Erro ao criar conta. Tente novamente.");
       }
-    } catch (error) {
+    } catch {
       setError("Erro ao criar conta. Tente novamente.");
     } finally {
       setIsLoading(false);

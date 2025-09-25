@@ -27,7 +27,7 @@ const Login = () => {
     try {
       const success = await login(email, password);
       if (success) {
-        navigate("/");
+        navigate("/dashboard");
       } else {
         setError("Email ou senha inválidos");
       }

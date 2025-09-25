@@ -17,13 +17,13 @@ const DefaultLayout = ({ children }: DefaultLayoutProps) => {
 
   useEffect(() => {
     if (!isLoading && !user) {
-      navigate("/login");
+      navigate("/");
     }
   }, [user, isLoading, navigate]);
 
   const handleLogout = () => {
     logout();
-    navigate("/login");
+    navigate("/");
   };
 
   if (isLoading) {
@@ -42,7 +42,7 @@ const DefaultLayout = ({ children }: DefaultLayoutProps) => {
   }
 
   const navItems = [
-    { href: "/", icon: Home, label: "Dashboard" },
+    { href: "/dashboard", icon: Home, label: "Dashboard" },
     { href: "/projetos", icon: FolderOpen, label: "Projetos" },
     { href: "/explorar", icon: Users, label: "Explorar" },
     { href: "/agenda", icon: Calendar, label: "Agenda" },
@@ -55,7 +55,7 @@ const DefaultLayout = ({ children }: DefaultLayoutProps) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <Link to="/" className="flex items-center space-x-3 group">
+            <Link to="/dashboard" className="flex items-center space-x-3 group">
               <div className="relative">
                 <img 
                   src={aureaVoxLogo} 

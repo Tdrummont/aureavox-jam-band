@@ -15,6 +15,7 @@ import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
 import DefaultLayout from "./components/Layout/DefaultLayout";
 import AuthLayout from "./components/Layout/AuthLayout";
+import Welcome from "./pages/welcome";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,8 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+            {/* Página pública de boas-vindas */}
+            <Route path="/" element={<Welcome />} />
             {/* Rotas de autenticação */}
             <Route path="/login" element={
               <AuthLayout>
@@ -42,7 +45,7 @@ const App = () => (
             <Route path="/*" element={
               <DefaultLayout>
                 <Routes>
-                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/projetos" element={<Projetos />} />
                   <Route path="/project/:id" element={<Project />} />
                   <Route path="/explorar" element={<Explorar />} />
